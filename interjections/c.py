@@ -6,11 +6,11 @@ import sys
 from tempfile import NamedTemporaryFile
 
 
-from .utils.shell import Exectuable, Flag
+from .utils.shell import Executable, Flag
 from .utils.path import temp_path
 
 
-cc = Exectuable('cc')
+cc = Executable('cc')
 
 
 _template = """\

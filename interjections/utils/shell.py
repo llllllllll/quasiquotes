@@ -28,9 +28,9 @@ class Flag(metaclass=FlagMeta):
         return self
 
 
-class Exectuable(object):
+class Executable(object):
     """
-    An exectuble from the shell.
+    An executable from the shell.
     """
     def __init__(self, name):
         self._name = name
