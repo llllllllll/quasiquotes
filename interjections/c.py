@@ -13,6 +13,13 @@ from .utils.path import temp_path
 cc = Executable('cc')
 
 
+class CompilationError(Exception):
+    """An exception that indicates that cc failed to compile the given C code.
+    """
+    def __str__(self):
+        return '\n' + self.args[0]
+
+
 _template = """\
 #include <Python.h>
 
@@ -29,6 +36,7 @@ __f(PyObject *self, PyObject *__args, PyObject *__kwargs)
     }}
 
     /* BEGIN USER BLOCK */
+    #line {lineno} "{filename}"
 {code}
     /* END USER BLOCK */
 
@@ -101,6 +109,8 @@ def _make_c_func(code, frame):
             localdecls='\n'.join(
                 map('    PyObject *{} = NULL;'.format, names),
             ),
+            lineno=frame.f_lineno,
+            filename=frame.f_code.co_filename,
             code='\n'.join(map('    '.__add__, code.splitlines())),
             localassign='\n'.join(map(
                 '    {0} &&'
@@ -119,7 +129,7 @@ def _make_c_func(code, frame):
             f.name,
         )
         if err:
-            raise ValueError(err)
+            raise CompilationError(err)
 
         return __import__(modname).f
 
