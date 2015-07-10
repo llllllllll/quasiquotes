@@ -1,23 +1,22 @@
-``interjections 0.1``
+``quasiquotes 0.1``
 =====================
 
 Blocks of non-python code sprinkled in for extra seasoning.
 
 
-What is an ``interjection``
+What is a ``quasiquote``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-An ``interjection`` is a new syntactical element that allows us to embed non
+An ``quasiquote`` is a new syntactical element that allows us to embed non
 python code into our existing python code. The basic structure is as follows:
 
 
 .. code-block:: python
 
 
-    # coding: interjections
+    # coding: quasiquote
 
-    with @name:
-        some code goes here
+    [$name|some code goes here|]
 
 
 This desuagars to:
@@ -28,20 +27,33 @@ This desuagars to:
     name("some code goes here")
 
 
-This allows us to use slightly nicer syntax for our blocks.
-The ``# coding: interjections`` is needed to enable this extension.
+This allows us to use slightly nicer syntax for our code.
+The ``# coding: quasiquote`` is needed to enable this extension.
+The syntax is chosen to match haskell's quasiquote syntax from GHC 6.12. We need
+to use the older syntax (with the ``$``) because python's grammar would be
+ambiguous without it at the quote open step. To simplify the tokenizer, we chose
+to use slighly more verbose syntax.
+
+We may also use statement syntax for quasiquotes with a modified with block:
+
+.. code-block:: python
+
+    with $name:
+        some code goes here
+
+This desugars the same as the block above.
 
 
-The ``@c`` interjection
+The ``c`` quasiquoter
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The builtin ``@c`` interjection allows us to inline C code into our python.
+The builtin ``c`` quasiquoter allows us to inline C code into our python.
 For example:
 
 .. code-block:: python
 
     >>> def f(a):
-    ...     with @c:
+    ...     with $c:
     ...         printf("%ld\n", PyLong_AsLong(a));
     ...         a = Py_None;
     ...         Py_INCREF(a);
@@ -55,5 +67,4 @@ For example:
     None
 
 
-Here we can see that the interjection can read from and write to the local
-scope.
+Here we can see that the quasiquoter can read from and write to the local scope.

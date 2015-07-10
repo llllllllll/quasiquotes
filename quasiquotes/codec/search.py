@@ -25,11 +25,11 @@ class StreamReader(utf_8.StreamReader):
 
 
 def search_function(encoding):
-    if encoding != 'interjections':
+    if encoding != 'quasiquotes':
         return None
 
     return CodecInfo(
-        name='interjections',
+        name='quasiquotes',
         encode=utf8.encode,
         decode=decode,
         incrementalencoder=utf8.incrementalencoder,

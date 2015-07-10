@@ -23,10 +23,10 @@ def subcmd(cmd):
             except AttributeError:
                 return self.install_lib
 
-        __file = 'interjections.pth'
+        __file = 'quasiquotes.pth'
 
         def run(self):
-            self.path_file = 'interjections'
+            self.path_file = 'quasiquotes'
             super().run()
             self.execute(copy, (self.__file, self.__path))
 
@@ -42,9 +42,9 @@ def subcmd(cmd):
 
 setup(
     cmdclass={'install': subcmd(install), 'develop': subcmd(develop)},
-    name='interjections',
+    name='quasiquotes',
     version='0.0.1',
-    description='Inline other stuff into python',
+    description='Quasiquotation in python',
     author='Joe Jevnik',
     author_email='joejev@gmail.com',
     packages=find_packages(),
@@ -59,5 +59,5 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Software Development :: Pre-processors',
     ],
-    url='https://github.com/llllllllll/interjections',
+    url='https://github.com/llllllllll/quasiquotates',
 )
