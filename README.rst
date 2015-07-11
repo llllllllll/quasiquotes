@@ -21,11 +21,12 @@ python code into our existing python code. The basic structure is as follows:
 
 This desuagars to:
 
-
 .. code-block:: python
 
-    name("some code goes here")
+    name.quote_expr("some code goes here", frame, col_offset)
 
+where ``frame`` is the executing stack frame and ``col_offset`` is the column
+offset of the quasiquoter.
 
 This allows us to use slightly nicer syntax for our code.
 The ``# coding: quasiquote`` is needed to enable this extension.
@@ -34,14 +35,21 @@ to use the older syntax (with the ``$``) because python's grammar would be
 ambiguous without it at the quote open step. To simplify the tokenizer, we chose
 to use slighly more verbose syntax.
 
-We may also use statement syntax for quasiquotes with a modified with block:
+We may also use statement syntax for quasiquotes in a modified with block:
 
 .. code-block:: python
+
+    # coding: quasiquotes
 
     with $name:
         some code goes here
 
-This desugars the same as the block above.
+This desuagars to:
+
+.. code-block:: python
+
+    name.quote_stmt("    some code goes here", frame, col_offset)
+
 
 
 The ``c`` quasiquoter
