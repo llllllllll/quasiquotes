@@ -88,7 +88,6 @@ class c(QuasiQuoter):
         static PyObject *
         __f(PyObject *__self, PyObject *__args, PyObject *__kwargs)
         {{
-            PyObject *__return;
             char *__keywords[] = {keywords};
         {localdecls}
 
@@ -99,14 +98,11 @@ class c(QuasiQuoter):
 
             /* BEGIN USER BLOCK */
             #line {lineno} "{filename}"
-            __return =
+            return ({{
             #line {lineno} "{filename}"
         {code}
             /* END USER BLOCK */
-            ;
-
-            Py_XINCREF(__return);
-            return __return;
+        ;}});
         }}
 
 
