@@ -50,7 +50,6 @@ setup(
     packages=find_packages(),
     long_description=long_description,
     license='GPL-2',
-#    scripts=['uninstall_interjections'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
