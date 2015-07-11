@@ -43,7 +43,7 @@ def subcmd(cmd):
 setup(
     cmdclass={'install': subcmd(install), 'develop': subcmd(develop)},
     name='quasiquotes',
-    version='0.0.1',
+    version='0.1.0',
     description='Quasiquotation in python',
     author='Joe Jevnik',
     author_email='joejev@gmail.com',
