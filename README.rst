@@ -14,7 +14,7 @@ python code into our existing python code. The basic structure is as follows:
 .. code-block:: python
 
 
-    # coding: quasiquote
+    # coding: quasiquotes
 
     [$name|some code goes here|]
 
@@ -29,7 +29,7 @@ where ``frame`` is the executing stack frame and ``col_offset`` is the column
 offset of the quasiquoter.
 
 This allows us to use slightly nicer syntax for our code.
-The ``# coding: quasiquote`` is needed to enable this extension.
+The ``# coding: quasiquotes`` is needed to enable this extension.
 The syntax is chosen to match haskell's quasiquote syntax from GHC 6.12. We need
 to use the older syntax (with the ``$``) because python's grammar would be
 ambiguous without it at the quote open step. To simplify the tokenizer, we chose
