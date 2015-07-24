@@ -61,6 +61,7 @@ For example:
 
 .. code-block:: python
 
+   >>> from quasiquotes.c import c
    >>> def f(a):
    ...     with $c:
    ...         printf("%ld\n", PyLong_AsLong(a));
