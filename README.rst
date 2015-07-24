@@ -1,11 +1,12 @@
-``quasiquotes 0.1``
+=====================
+ ``quasiquotes 0.1``
 =====================
 
 Blocks of non-python code sprinkled in for extra seasoning.
 
 
 What is a ``quasiquote``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+========================
 
 An ``quasiquote`` is a new syntactical element that allows us to embed non
 python code into our existing python code. The basic structure is as follows:
@@ -14,16 +15,16 @@ python code into our existing python code. The basic structure is as follows:
 .. code-block:: python
 
 
-    # coding: quasiquotes
+   # coding: quasiquotes
 
-    [$name|some code goes here|]
+   [$name|some code goes here|]
 
 
 This desuagars to:
 
 .. code-block:: python
 
-    name.quote_expr("some code goes here", frame, col_offset)
+   name.quote_expr("some code goes here", frame, col_offset)
 
 where ``frame`` is the executing stack frame and ``col_offset`` is the column
 offset of the quasiquoter.
@@ -39,40 +40,56 @@ We may also use statement syntax for quasiquotes in a modified with block:
 
 .. code-block:: python
 
-    # coding: quasiquotes
+   # coding: quasiquotes
 
-    with $name:
-        some code goes here
+   with $name:
+       some code goes here
 
 This desuagars to:
 
 .. code-block:: python
 
-    name.quote_stmt("    some code goes here", frame, col_offset)
+   name.quote_stmt("    some code goes here", frame, col_offset)
 
 
 
 The ``c`` quasiquoter
-~~~~~~~~~~~~~~~~~~~~~~~
+=====================
 
 The builtin ``c`` quasiquoter allows us to inline C code into our python.
 For example:
 
 .. code-block:: python
 
-    >>> def f(a):
-    ...     with $c:
-    ...         printf("%ld\n", PyLong_AsLong(a));
-    ...         a = Py_None;
-    ...         Py_INCREF(a);
-    ...     print(a)
-    ...
-    >>> f(0)
-    0
-    None
-    >>> f(1)
-    1
-    None
+   >>> def f(a):
+   ...     with $c:
+   ...         printf("%ld\n", PyLong_AsLong(a));
+   ...         a = Py_None;
+   ...         Py_INCREF(a);
+   ...     print(a)
+   ...
+   >>> f(0)
+   0
+   None
+   >>> f(1)
+   1
+   None
 
 
-Here we can see that the quasiquoter can read from and write to the local scope.
+Here we can see that the quasiquoter can read from and write to the local
+scope.
+
+
+We can also use mutli-statement expressions:
+
+.. code-block:: python
+
+   >>> def cell_new(n):
+   ...     return [$c|PyCell_New(n);]
+   ...
+   >>> cell_new(1)
+   <cell at 0x7f8dde6cd5e8: int object at 0x7f8ddf956780>
+
+
+Here we can see that the ``c`` quasiquoter is really convenient as a python
+interface into the C API.
