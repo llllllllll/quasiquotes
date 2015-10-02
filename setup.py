@@ -58,5 +58,5 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Software Development :: Pre-processors',
     ],
-    url='https://github.com/llllllllll/quasiquotates',
+    url='https://github.com/llllllllll/quasiquotes',
 )
