@@ -36,21 +36,18 @@ class Executable(object):
         self._name = name
 
     def __call__(self, *args, **kwargs):
-        stdin = kwargs.get('stdin')
+        stdin = kwargs.pop('stdin', None)
+        if kwargs:
+            raise TypeError(
+                'unexpected keyword arguments: %s' % kwargs.keys(),
+            )
 
-        prefix = ("echo %s | " % stdin) if stdin else ""
-        command = '%s%s %s' % (prefix, self._name, ' '.join(map(str, args)))
         proc = Popen(
-            command,
+            '%s %s' % (self._name, ' '.join(map(str, args))),
             shell=True,
-            stdin=DEVNULL,
+            stdin=PIPE if stdin else DEVNULL,
             stdout=PIPE,
             stderr=PIPE,
         )
-        proc.wait()
-
-        return (
-            proc.stdout.read().decode('utf-8'),
-            proc.stderr.read().decode('utf-8'),
-            proc.returncode,
-        )
+        out, err = proc.communicate(stdin)
+        return out.decode('utf-8'), err.decode('utf-8'), proc.returncode

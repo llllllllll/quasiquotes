@@ -10,6 +10,8 @@ utf8 = utf_8.getregentry()
 def decode(input, errors='strict'):
     if isinstance(input, memoryview):
         input = input.tobytes().decode('utf-8')
+    if isinstance(input, str):
+        input = input.encode('utf-8')
     return utf8.decode(transform_bytes(input), errors)
 
 
