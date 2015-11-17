@@ -94,3 +94,33 @@ We can also use mutli-statement expressions:
 
 Here we can see that the ``c`` quasiquoter is really convenient as a python
 interface into the C API.
+
+
+IPython Integration
+-------------------
+
+We can use the ``c`` quasiquoter in the IPython repl or notebook as a cell or
+line magic. When used as a line magic, it is quoted as an expression. When used
+as a cell magic, it is quoted as a statement.
+
+
+.. code-block:: python
+
+   In [1]: import quasiquotes.c
+
+   In [2]: a = 5
+
+   In [3]: %c PyObject *b = PyLong_FromLong(3); PyObject *ret = PyNumber_Add(a, b); Py_DECRE   F(b); ret;
+Out[3]: 8
+
+   In [4]: %%c
+      ...: printf("%ld + %ld = %ld\n", 3, PyLong_AsLong(a), PyLong_AsLong(_3));
+      ...: puts("reassigning 'a'");
+      ...: a = Py_None;
+      ...: Py_INCREF(a);
+      ...:
+   3 + 5 = 8
+   reassigning 'a'
+
+   In [6]: a is None
+   Out[6]: True
