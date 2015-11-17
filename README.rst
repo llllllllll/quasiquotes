@@ -111,7 +111,7 @@ as a cell magic, it is quoted as a statement.
    In [2]: a = 5
 
    In [3]: %c PyObject *b = PyLong_FromLong(3); PyObject *ret = PyNumber_Add(a, b); Py_DECRE   F(b); ret;
-Out[3]: 8
+   Out[3]: 8
 
    In [4]: %%c
       ...: printf("%ld + %ld = %ld\n", 3, PyLong_AsLong(a), PyLong_AsLong(_3));
