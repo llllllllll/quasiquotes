@@ -82,20 +82,21 @@ class c(QuasiQuoter):
 
     _basename_template = '_qq_{base}_{md5}'
     _missing_name_pattern = re.compile(
-        r'^.+:\d+:\d+: error: ‘(.+)’ undeclared'
+        r'^.+: error: ‘(.+)’ undeclared'
         r' \(first use in this function\)$',
         re.MULTILINE,
     )
-    _error_pattern = re.compile('^.+:\d+\d+: error.*', re.MULTILINE)
+    _error_pattern = re.compile('^.+:\d+: error.*', re.MULTILINE)
 
     _read_scope_template = dedent(
         """\
-        if (!({name} = PyDict_GetItemString(__qq_locals, "{name}"))) {{
-            if (!({name} = PyDict_GetItemString(__qq_globals, "{name}"))) {{
-                PyErr_SetString(PyExc_NameError,
-                                "name '{name}' is not defined");
+            if (!({name} = PyDict_GetItemString(__qq_locals, "{name}"))) {{
+                if (!({name} = PyDict_GetItemString(__qq_globals,
+                                                    "{name}"))) {{
+                    PyErr_SetString(PyExc_NameError,
+                                    "name '{name}' is not defined");
+                }}
             }}
-        }}
         """,
     )
 
@@ -106,37 +107,36 @@ class c(QuasiQuoter):
         static PyObject *
         __qq_f(PyObject *__qq_self, PyObject *__qq_args)
         {{
-        PyObject *__qq_globals;
-        PyObject *__qq_locals;
-        PyObject *__qq_return;
+            PyObject *__qq_globals;
+            PyObject *__qq_locals;
         {localdecls}
 
-        if (PyTuple_GET_SIZE(__qq_args) != 2) {{
-            PyErr_SetString(PyExc_TypeError,
-                            "quoted func needs 2 args (globals, locals)");
-            return NULL;
-        }}
-        __qq_globals = PyTuple_GET_ITEM(__qq_args, 0);
-        __qq_locals = PyTuple_GET_ITEM(__qq_args, 1);
+            if (PyTuple_GET_SIZE(__qq_args) != 2) {{
+                PyErr_SetString(PyExc_TypeError,
+                                "quoted func needs 2 args (globals, locals)");
+                return NULL;
+            }}
+            __qq_globals = PyTuple_GET_ITEM(__qq_args, 0);
+            __qq_locals = PyTuple_GET_ITEM(__qq_args, 1);
 
         {read_scope}
         """,
     )
 
     _stmt_template = _shared + dedent(
-        """
+        """\
 
-        /* BEGIN USER BLOCK */
-        #line {lineno} "{filename}"
-        {{
+            /* BEGIN USER BLOCK */
+            #line {lineno} "{filename}"
+            {{
         {code}
-        }}
+            }}
             /* END USER BLOCK */
 
         {localassign}
 
-        Py_INCREF(__qq_locals);
-        return __qq_locals;
+            Py_INCREF(__qq_locals);
+            return __qq_locals;
         }}
 
         PyMethodDef __qq_methoddef = {{
@@ -146,15 +146,14 @@ class c(QuasiQuoter):
     )
 
     _expr_template = _shared + dedent(
-        """
+        """\
 
-        __qq_return = ({{
-        #line {lineno} "{filename}"
+            /* BEGIN USER BLOCK */
+            return ({{
+            #line {lineno} "{filename}"
         {code}
             /* END USER BLOCK */
-        ;}});
-
-            return __qq_return;
+            ;}});
         }}
 
         PyMethodDef __qq_methoddef = {{
@@ -392,6 +391,7 @@ class c(QuasiQuoter):
             Flag.O(3),
             Flag.I(get_python_inc()),
             Flag.f('PIC'),
+            Flag.std('gnu11'),
             Flag.shared,
             Flag.o(soname),
             *(cname,) + self._extra_compile_args
