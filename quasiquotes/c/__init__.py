@@ -42,6 +42,8 @@ class c(QuasiQuoter):
         Keep the generated *.c files. Defaults to False.
     keep_so : bool, optional
         Keep the compiled *.so files. Defaults to True.
+    extra_compile_args : iterable[str or Flag]
+        Extra command line arguments to pass to gcc.
 
     Methods
     -------
@@ -69,9 +71,10 @@ class c(QuasiQuoter):
     This is because of the way the quasiquotes lexer identifies quasiquote
     sections.
     """
-    def __init__(self, *, keep_c=False, keep_so=True):
+    def __init__(self, *, keep_c=False, keep_so=True, extra_compile_args=()):
         self._keep_c = keep_c
         self._keep_so = keep_so
+        self._extra_compile_args = tuple(extra_compile_args)
         self._stmt_cache = {}
         self._expr_cache = {}
 
@@ -405,7 +408,7 @@ class c(QuasiQuoter):
             Flag.f('PIC'),
             Flag.shared,
             Flag.o(soname),
-            cname,
+            *(cname,) + self._extra_compile_args
         )
         if not self._keep_c:
             os.remove(cname)
