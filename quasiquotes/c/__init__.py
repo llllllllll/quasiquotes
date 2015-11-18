@@ -1,4 +1,3 @@
-from collections import ChainMap
 from ctypes import pythonapi, c_int, py_object
 from distutils.sysconfig import get_python_inc
 from hashlib import md5
@@ -89,18 +88,46 @@ class c(QuasiQuoter):
     )
     _error_pattern = re.compile('^.+:\d+\d+: error.*', re.MULTILINE)
 
-    _stmt_template = dedent(
+    _read_scope_template = dedent(
+        """\
+        if (!({name} = PyDict_GetItemString(__qq_locals, "{name}"))) {{
+            if (!({name} = PyDict_GetItemString(__qq_globals, "{name}"))) {{
+                PyErr_SetString(PyExc_NameError,
+                                "name '{name}' is not defined");
+            }}
+        }}
+        """,
+    )
+
+    _shared = dedent(
         """\
         #include <Python.h>
 
         static PyObject *
-        __qq_f(PyObject *__qq_self, PyObject *__qq_scope)
+        __qq_f(PyObject *__qq_self, PyObject *__qq_args)
         {{
+        PyObject *__qq_globals;
+        PyObject *__qq_locals;
+        PyObject *__qq_return;
         {localdecls}
-        {read_scope}
 
-            /* BEGIN USER BLOCK */
-            #line {lineno} "{filename}"
+        if (PyTuple_GET_SIZE(__qq_args) != 2) {{
+            PyErr_SetString(PyExc_TypeError,
+                            "quoted func needs 2 args (globals, locals)");
+            return NULL;
+        }}
+        __qq_globals = PyTuple_GET_ITEM(__qq_args, 0);
+        __qq_locals = PyTuple_GET_ITEM(__qq_args, 1);
+
+        {read_scope}
+        """,
+    )
+
+    _stmt_template = _shared + dedent(
+        """
+
+        /* BEGIN USER BLOCK */
+        #line {lineno} "{filename}"
         {{
         {code}
         }}
@@ -108,46 +135,30 @@ class c(QuasiQuoter):
 
         {localassign}
 
-        __qq_cleanup:
-        {xdecrefs}
-
-            Py_INCREF(__qq_scope);
-            return __qq_scope;
+        Py_INCREF(__qq_locals);
+        return __qq_locals;
         }}
 
         PyMethodDef __qq_methoddef = {{
-            "quoted_stmt", (PyCFunction) __qq_f, METH_O, "",
+            "quoted_stmt", (PyCFunction) __qq_f, METH_VARARGS, "",
         }};
         """,
     )
 
-    _expr_template = dedent(
-        """\
-        #include <Python.h>
+    _expr_template = _shared + dedent(
+        """
 
-        static PyObject *
-        __qq_f(PyObject *__qq_self, PyObject *__qq_scope)
-        {{
-            PyObject *__qq_return;
-        {localdecls}
-        {read_scope}
-
-            /* BEGIN USER BLOCK */
-            #line {lineno} "{filename}"
-            __qq_return = ({{
-            #line {lineno} "{filename}"
+        __qq_return = ({{
+        #line {lineno} "{filename}"
         {code}
             /* END USER BLOCK */
         ;}});
-
-        __qq_cleanup:
-        {xdecrefs}
 
             return __qq_return;
         }}
 
         PyMethodDef __qq_methoddef = {{
-            "quoted_expr", (PyCFunction) __qq_f, METH_O, "",
+            "quoted_expr", (PyCFunction) __qq_f, METH_VARARGS, "",
         }};
         """
     )
@@ -164,9 +175,12 @@ class c(QuasiQuoter):
         col_offset : int
             The column offset of the code.
         """
-        ns, locals_ = self._ns_from_frame(frame)
-        self._resolve_stmt(code, frame, col_offset)(ns)  # mutates ns
-        locals_.update(ns)
+        locals_ = frame.f_locals
+        self._resolve_stmt(code, frame, col_offset)(
+            frame.f_globals,
+            locals_,
+        )
+        locals_.update(locals_)
         pythonapi.PyFrame_LocalsToFast(py_object(frame), c_int(1))
 
     def quote_expr(self, code, frame, col_offset):
@@ -187,7 +201,8 @@ class c(QuasiQuoter):
             The result of the C expression.
         """
         return self._resolve_expr(code, frame, col_offset)(
-            self._ns_from_frame(frame)[0]
+            frame.f_globals,
+            frame.f_locals,
         )
 
     @staticmethod
@@ -279,26 +294,6 @@ class c(QuasiQuoter):
             code, frame, col_offset, self._expr_cache, self._make_expr,
         )
 
-    def _ns_from_frame(self, frame):
-        """Construct a namespace from the given stack frame.
-
-        Parameters
-        ----------
-        frame : frame
-            The stack frame to use.
-
-        Returns
-        ns : dict
-            The namespace.
-        locals_ : dict
-            The frame locals.
-        """
-        locals_ = frame.f_locals
-        return dict(ChainMap(
-            locals_,
-            frame.f_globals,
-        )), locals_
-
     def _make_func(self,
                    code,
                    frame,
@@ -332,7 +327,7 @@ class c(QuasiQuoter):
             extra_template_args = {
                 'localassign': '\n'.join(
                     map(
-                        '    {0} && PyDict_SetItemString(__qq_scope,'
+                        '    {0} && PyDict_SetItemString(__qq_locals,'
                         ' "{0}", {0});'.format,
                         names,
                     ),
@@ -346,17 +341,6 @@ class c(QuasiQuoter):
                 "incorrect kind ('{}') must be 'stmt' or 'expr'".format(kind),
             )
 
-        read_scope = '\n'.join(
-            map(
-                '    if (!({0} = PyDict_GetItemString(__qq_scope,\n'
-                '                                     "{0}"))) {{\n'
-                '        PyErr_SetString(PyExc_NameError,\n'
-                '                        "name \'{0}\' is not defined");\n'
-                '        goto __qq_cleanup;\n'
-                '    }}'.format,
-                names,
-            ),
-        )
         cname = self._cname(code, frame.f_code)
         with open(cname, 'w+') as f:
             f.write(template.format(
@@ -368,8 +352,10 @@ class c(QuasiQuoter):
                 localdecls='\n'.join(
                     map('    PyObject *{} = NULL;'.format, names),
                 ),
-                read_scope=read_scope,
-                xdecrefs='\n'.join(map('    Py_XDECREF({});'.format, names)),
+                read_scope='\n'.join(
+                    self._read_scope_template.format(name=name)
+                    for name in names,
+                ),
                 lineno=frame.f_lineno,
                 filename=frame.f_code.co_filename,
                 code=code,

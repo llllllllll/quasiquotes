@@ -25,7 +25,7 @@ class QuasiQuoter(object):
     """
     QuasiQuoter base class.
     """
-    def _quote_expr(self, col_offset, expr):
+    def _quote_expr(self, col_offset, expr, _getframe=_getframe):
         return self.quote_expr(expr, _getframe(1), col_offset)
 
     @staticmethod
@@ -56,7 +56,7 @@ class QuasiQuoter(object):
         """
         self._quote_default(frame, 'expr')
 
-    def _quote_stmt(self, col_offset, stmt):
+    def _quote_stmt(self, col_offset, stmt, _getframe=_getframe):
         self.quote_stmt(stmt, _getframe(1), col_offset)
 
     def quote_stmt(self, stmt, frame, col_offset):
