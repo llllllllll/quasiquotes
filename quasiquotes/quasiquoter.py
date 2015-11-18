@@ -2,7 +2,23 @@ from sys import _getframe
 
 
 class QQNotImplementedError(NotImplementedError):
-    pass
+    def __init__(self, kind):
+        if kind not in ('stmt', 'expr'):
+            raise ValueError("'kind' must be either 'stmt' or 'expr'")
+        self._kind = kind
+
+    def __str__(self):
+        if self._kind == 'stmt':
+            kind = 'statements'
+            syntax = 'with $qq: ...'
+        else:
+            kind = 'expressions'
+            syntax = '[$qq|...|]'
+
+        return 'quasiquoter does not support quoted %s (%s syntax)' % (
+            kind,
+            syntax,
+        )
 
 
 class QuasiQuoter(object):
@@ -11,6 +27,13 @@ class QuasiQuoter(object):
     """
     def _quote_expr(self, col_offset, expr):
         return self.quote_expr(expr, _getframe(1), col_offset)
+
+    @staticmethod
+    def _quote_default(frame, kind):
+        # Circular import for bootstrapping reasons.
+        from ._traceback import new_tb
+
+        raise QQNotImplementedError(kind).with_traceback(new_tb(frame))
 
     def quote_expr(self, expr, frame, col_offset):
         """Quote an expression.
@@ -31,8 +54,7 @@ class QuasiQuoter(object):
         v : any
             The value of the quoted expression
         """
-
-        raise QQNotImplementedError('quote_expr')
+        self._quote_default(frame, 'expr')
 
     def _quote_stmt(self, col_offset, stmt):
         self.quote_stmt(stmt, _getframe(1), col_offset)
@@ -52,7 +74,7 @@ class QuasiQuoter(object):
         col_offset : int
             The column offset for the quasiquoter.
         """
-        raise QQNotImplementedError('quote_stmt')
+        self._quote_default(frame, 'stmt')
 
 
 class fromfile(QuasiQuoter):
@@ -79,3 +101,20 @@ class fromfile(QuasiQuoter):
             return self._qq.quote_expr(
                 ' ' * col_offset + f.read(), frame, col_offset
             )
+
+    def quote_stmt(self, body, frame, col_offset):
+        lines = body.splitlines()
+        try:
+            filename, = lines
+        except ValueError:
+            raise SyntaxError(
+                'fromfile only accepts a single filename on the first line', (
+                    frame.f_code.co_filename,
+                    frame.f_lineno,
+                    1,
+                    lines[1].strip(),
+                )
+            ) from None
+
+        with open(filename.strip()) as f:
+            self._qq.quote_stmt(f.read(), frame, col_offset)

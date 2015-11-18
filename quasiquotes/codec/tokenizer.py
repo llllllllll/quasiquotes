@@ -1,5 +1,5 @@
 from io import BytesIO
-from itertools import islice
+from itertools import islice, chain, repeat
 from token import (
     ERRORTOKEN,
     INDENT,
@@ -10,11 +10,28 @@ from token import (
     OP,
     STRING,
 )
-from tokenize import tokenize as default_tokenize, TokenInfo, untokenize, NL
+from tokenize import (
+    ENCODING,
+    NL,
+    TokenInfo,
+    _tokenize,
+    untokenize,
+)
 from queue import Queue, Empty
 
 
 class FuzzyTokenInfo(TokenInfo):
+    """A token info object that check equality only on ``type`` and ``string``.
+
+    Parameters
+    ----------
+    type : int
+        The enum for the token type.
+    string : str
+        The string represnting the token.
+    start, end, line : any
+        Ignored.
+    """
     def __new__(cls, type, string, start=None, end=None, line=None):
         return super().__new__(cls, type, string, start, end, line)
 
@@ -35,6 +52,7 @@ nl_tok = FuzzyTokenInfo(NEWLINE, '\n')
 left_bracket_tok = FuzzyTokenInfo(OP, '[')
 pipe_tok = FuzzyTokenInfo(OP, '|')
 right_bracket_tok = FuzzyTokenInfo(OP, ']')
+encoding_tok = FuzzyTokenInfo(ENCODING, string='quasiquotes')
 
 
 class PeekableIterator(object):
@@ -283,7 +301,11 @@ def tokenize(readline):
     t : TokenInfo
         The token stream.
     """
-    tok_stream = PeekableIterator(default_tokenize(readline))
+    # force the token stream to use `utf-8` and ignore the encoding pragma.
+    tok_stream = PeekableIterator(_tokenize(
+        chain(iter(readline, b''), repeat(b'')).__next__,
+        'utf-8',
+    ))
     for t in tok_stream:
         if t == with_tok:
             try:
@@ -291,8 +313,11 @@ def tokenize(readline):
             except ValueError:
                 continue
 
-            if (sp == spaceerror_tok and dol == dollar_tok and
-                    col == col_tok and nl == nl_tok and indent.type == INDENT):
+            if (sp == spaceerror_tok and
+                    dol == dollar_tok and
+                    col == col_tok and
+                    nl == nl_tok and
+                    indent.type == INDENT):
                 # pull the items out of the stream.
                 tuple(islice(tok_stream, None, 6))
                 yield from quote_stmt_tokenizer(name, t, tok_stream)

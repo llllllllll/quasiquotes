@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 from setuptools.command.install import install
 from setuptools.command.develop import develop
 from shutil import copy
@@ -57,6 +57,9 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Software Development :: Pre-processors',
+    ],
+    ext_modules=[
+        Extension('quasiquotes.c._loader', ['quasiquotes/c/_loader.c']),
     ],
     url='https://github.com/llllllllll/quasiquotes',
 )

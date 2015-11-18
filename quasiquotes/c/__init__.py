@@ -6,18 +6,27 @@ import operator as op
 import os
 import re
 from textwrap import dedent
+from warnings import warn
 
 
-from .quasiquoter import QuasiQuoter
-from .utils.instance import instance
-from .utils.shell import Executable, Flag
+from ._loader import create_callable
+from ..quasiquoter import QuasiQuoter
+from ..utils.instance import instance
+from ..utils.shell import Executable, Flag
 
 
-cc = Executable('cc')
+gcc = Executable('gcc')
 
 
 class CompilationError(Exception):
-    """An exception that indicates that cc failed to compile the given C code.
+    """An exception that indicates that gcc failed to compile the given C code.
+    """
+    def __str__(self):
+        return '\n' + self.args[0]
+
+
+class CompilationWarning(UserWarning):
+    """A warningthat indicates that gcc warned when compiling the given C code.
     """
     def __str__(self):
         return '\n' + self.args[0]
@@ -69,13 +78,13 @@ class c(QuasiQuoter):
     def __call__(self, **kwargs):
         return type(self)(**kwargs)
 
-    _modname_template = '_qq_{base}_{line}_{col_offset}_{md5}'
+    _basename_template = '_qq_{base}_{md5}'
     _missing_name_pattern = re.compile(
         r'^.+:\d+:\d+: error: ‘(.+)’ undeclared'
         r' \(first use in this function\)$',
         re.MULTILINE,
     )
-    _modname_pattern = re.compile('[^0-9a-zA-Z]')
+    _error_pattern = re.compile('^.+:\d+\d+: error.*', re.MULTILINE)
 
     _stmt_template = dedent(
         """\
@@ -103,29 +112,9 @@ class c(QuasiQuoter):
             return __qq_scope;
         }}
 
-
-        static struct PyMethodDef module_functions[] = {{
-            {{"_quasiquoted", (PyCFunction) __qq_f, METH_O, ""}},
-            {{NULL}},
+        PyMethodDef __qq_methoddef = {{
+            "quoted_stmt", (PyCFunction) __qq_f, METH_O, "",
         }};
-
-        static struct PyModuleDef module = {{
-            PyModuleDef_HEAD_INIT,
-            "{modname}",
-            "",
-            -1,
-            module_functions,
-            NULL,
-            NULL,
-            NULL,
-            NULL
-           }};
-
-        PyMODINIT_FUNC
-        PyInit_{modname}(void)
-        {{
-            return PyModule_Create(&module);
-        }}
         """,
     )
 
@@ -154,30 +143,10 @@ class c(QuasiQuoter):
             return __qq_return;
         }}
 
-
-        static struct PyMethodDef module_functions[] = {{
-            {{"_quasiquoted", (PyCFunction) __qq_f, METH_O, ""}},
-            {{NULL}},
+        PyMethodDef __qq_methoddef = {{
+            "quoted_expr", (PyCFunction) __qq_f, METH_O, "",
         }};
-
-        static struct PyModuleDef module = {{
-            PyModuleDef_HEAD_INIT,
-            "{modname}",
-            "",
-            -1,
-            module_functions,
-            NULL,
-            NULL,
-            NULL,
-            NULL
-           }};
-
-        PyMODINIT_FUNC
-        PyInit_{modname}(void)
-        {{
-            return PyModule_Create(&module);
-        }}
-        """,
+        """
     )
 
     def quote_stmt(self, code, frame, col_offset):
@@ -260,21 +229,20 @@ class c(QuasiQuoter):
             The compiled C function.
         """
         entry = self._entry_from_frame(frame, col_offset)
-
         try:
             return cache[entry]
         except KeyError:
             pass
 
-        dir_, modname = self._dir_and_modname(code, *entry)
+        f_code = frame.f_code
         try:
-            f = cache[entry] = __import__(modname)._quasiquoted
+            f = cache[entry] = create_callable(self._soname(code, f_code))
             return f
-        except ImportError:
+        except OSError:
             pass
 
         try:
-            f = cache[entry] = self._compile(dir_, modname)
+            f = cache[entry] = self._compile(code, f_code)
             return f
         except FileNotFoundError:
             pass
@@ -282,17 +250,21 @@ class c(QuasiQuoter):
         f = cache[entry] = mkfunc(code, frame, col_offset)
         return f
 
-    def _dir_and_modname(self, code, f_code, f_lineno, col_offset):
-        name = self._modname_pattern.sub('_', f_code.co_filename)
+    def _dir_and_basename(self, code, f_code):
+        filename = f_code.co_filename
         return (
-            os.path.dirname(name),
-            self._modname_template.format(
-                base=os.path.basename(name).split('.', 1)[0],
-                line=f_lineno,
-                col_offset=col_offset,
+            os.path.abspath(os.path.dirname(filename)),
+            self._basename_template.format(
+                base=os.path.basename(filename).split('.', 1)[0],
                 md5=md5(code.encode('utf-8')).hexdigest(),
             ),
         )
+
+    def _soname(self, code, f_code):
+        return os.path.join(*self._dir_and_basename(code, f_code)) + '.so'
+
+    def _cname(self, code, f_code):
+        return os.path.join(*self._dir_and_basename(code, f_code)) + '.c'
 
     def _resolve_stmt(self, code, frame, col_offset):
         return self._resolve(
@@ -321,24 +293,8 @@ class c(QuasiQuoter):
         locals_ = frame.f_locals
         return dict(ChainMap(
             locals_,
-            {k: v for k, v in frame.f_globals.items() if self._notdunder(k)},
+            frame.f_globals,
         )), locals_
-
-    @staticmethod
-    def _notdunder(name):
-        """Checks if name is not a magic name.
-
-        Parameters
-        ----------
-        name : str
-            The name to check.
-
-        Returns
-        -------
-        notdunder : bool
-            If the name is a magic name or not.
-        """
-        return not (name.startswith('__') and name.endswith('__'))
 
     def _make_func(self,
                    code,
@@ -387,15 +343,10 @@ class c(QuasiQuoter):
                 "incorrect kind ('{}') must be 'stmt' or 'expr'".format(kind),
             )
 
-        dir_, modname = self._dir_and_modname(
-            code,
-            frame.f_code,
-            frame.f_lineno,
-            col_offset,
-        )
         read_scope = '\n'.join(
             map(
-                '    if (!({0} = PyDict_GetItemString(__qq_scope, "{0}"))) {{\n'
+                '    if (!({0} = PyDict_GetItemString(__qq_scope,\n'
+                '                                     "{0}"))) {{\n'
                 '        PyErr_SetString(PyExc_NameError,\n'
                 '                        "name \'{0}\' is not defined");\n'
                 '        goto __qq_cleanup;\n'
@@ -403,10 +354,9 @@ class c(QuasiQuoter):
                 names,
             ),
         )
-        cname = os.path.join(dir_, modname) + '.c'
+        cname = self._cname(code, frame.f_code)
         with open(cname, 'w+') as f:
             f.write(template.format(
-                modname=modname,
                 fmt='"{}"'.format('O' * len(names)),
                 keywords=(
                     '{' + ', '.join(map('"{}"'.format, names)) + ', NULL}'
@@ -425,7 +375,7 @@ class c(QuasiQuoter):
             f.flush()
 
         try:
-            return self._compile(dir_, modname)
+            return self._compile(code, frame.f_code)
         except CompilationError as e:
             if not _first:
                 try:
@@ -445,12 +395,11 @@ class c(QuasiQuoter):
                 _first=False,
             )
 
-    def _compile(self, dir_, modname):
-        basename = os.path.join(dir_, modname)
-        cname = basename + '.c'
-        soname = basename + '.so'
+    def _compile(self, code, f_code):
+        cname = self._cname(code, f_code)
+        soname = self._soname(code, f_code)
         os.stat(cname)  # raises FileNotFoundError if doesn't exist
-        _, err, status = cc(
+        _, err, status = gcc(
             Flag.O(3),
             Flag.I(get_python_inc()),
             Flag.f('PIC'),
@@ -461,8 +410,13 @@ class c(QuasiQuoter):
         if not self._keep_c:
             os.remove(cname)
         if err:
-            raise CompilationError(err)
-        f = __import__(modname)._quasiquoted
+            if self._error_pattern.findall(err):
+                raise CompilationError(err)
+            else:
+                warn(CompilationWarning(err))
+
+        f = create_callable(soname)
+
         if not self._keep_so:
             os.remove(soname)
         return f
@@ -513,7 +467,7 @@ class c(QuasiQuoter):
         ) if recurse else (
             os.path.join(path, f) for f in os.listdir(path)
         )
-        pattern = re.compile(r'.*_qq_.+_\d+_\d+_.+\.(c|so)$')
+        pattern = re.compile(r'.*_qq_.+.+\.(c|so)$')
         removed = []
         for p in paths:
             if pattern.match(p):
@@ -555,23 +509,3 @@ else:
     del sys
 
     c = _c  # reassign the quasiquoter to the name 'c'
-
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--path',
-        default='.',
-        help='The path to run c.cleanup on',
-    )
-    parser.add_argument(
-        '--no-recurse',
-        action='store_false',
-        dest='recurse',
-        default=True,
-        help='Should cleanup recurse down from PATH?',
-    )
-    for removed in c.cleanup(**vars(parser.parse_args())):
-        print(removed)

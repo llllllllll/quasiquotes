@@ -2,22 +2,19 @@ from codecs import CodecInfo
 from encodings import utf_8
 from io import StringIO
 
-from .tokenizer import transform_bytes, transform_string
+from .tokenizer import transform_string
 
 utf8 = utf_8.getregentry()
 
 
 def decode(input, errors='strict'):
-    if isinstance(input, memoryview):
-        input = input.tobytes().decode('utf-8')
-    if isinstance(input, str):
-        input = input.encode('utf-8')
-    return utf8.decode(transform_bytes(input), errors)
+    cs, errors = utf_8.decode(input, errors)
+    return transform_string(cs), errors
 
 
 class IncrementalDecoder(utf_8.IncrementalDecoder):
     def decode(self, input, final=False):
-        return super().decode(transform_bytes(input), final)
+        return transform_string(super().decode(input, final))
 
 
 class StreamReader(utf_8.StreamReader):
