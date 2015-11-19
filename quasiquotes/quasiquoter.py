@@ -21,10 +21,15 @@ class QQNotImplementedError(NotImplementedError):
         )
 
 
-class QuasiQuoter(object):
+class QuasiQuoter:
     """
     QuasiQuoter base class.
     """
+    def __new__(cls, *args, **kwargs):
+        if cls is QuasiQuoter:
+            raise TypeError("cannot construct instances of 'QuasiQuoter'")
+        return super().__new__(cls)
+
     def _quote_expr(self, col_offset, expr, _getframe=_getframe):
         return self.quote_expr(expr, _getframe(1), col_offset)
 
@@ -91,7 +96,13 @@ class fromfile(QuasiQuoter):
     >>> from quasiquotes.quasiquoter import fromfile
     >>> from quasiquotes.c import c
     >>> include_c = fromfile(c)
+
+    quote_expr on the contents of the file
     >>> [$include_c|mycode.c|]
+
+    # quote_stmt on the contents of the file
+    >>> with $include_c:
+    ...     mycode.c
     """
     def __init__(self, qq):
         self._qq = qq
