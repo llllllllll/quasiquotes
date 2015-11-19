@@ -23,7 +23,8 @@ def new_tb(frame):
         PyTracebackObject *tb;
 
         if (!PyFrame_Check(frame_)) {
-            PyErr_BadInternalCall();
+            PyErr_SetString(PyExc_TypeError,
+                            "frame must be a stackframe object");
             return NULL;
         }
         tb = PyObject_GC_New(PyTracebackObject, &PyTraceBack_Type);
