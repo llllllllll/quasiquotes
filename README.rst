@@ -1,12 +1,11 @@
-=====================
- ``quasiquotes 0.1``
-=====================
+quasiquotes
+===========
 
 Blocks of non-python code sprinkled in for extra seasoning.
 
 
 What is a ``quasiquote``
-========================
+------------------------
 
 An ``quasiquote`` is a new syntactical element that allows us to embed non
 python code into our existing python code. The basic structure is as follows:
@@ -54,7 +53,7 @@ This desuagars to:
 
 
 The ``c`` quasiquoter
-=====================
+---------------------
 
 The builtin ``c`` quasiquoter allows us to inline C code into our python.
 For example:
@@ -81,7 +80,7 @@ Here we can see that the quasiquoter can read from and write to the local
 scope.
 
 
-We can also use mutli-statement expressions:
+We can also quote C expressions with the quote expression syntax.
 
 .. code-block:: python
 
@@ -94,6 +93,27 @@ We can also use mutli-statement expressions:
 
 Here we can see that the ``c`` quasiquoter is really convenient as a python
 interface into the C API.
+
+.. warning::
+
+   CPython uses a reference counting system to manage the lifetimes of objects.
+   Code like:
+
+   .. code-block:: python
+
+      return [$|Py_None|]
+
+   can cause a potential segfault when ``None`` because it will have 1 less
+   reference than expected. Instead, be sure to remember to incref your
+   expressions with:
+
+   .. code-block:: python
+
+      return [$|Py_INCREF(Py_None); Py_None|]
+
+   You must also incref when reassigning names from the enclosing python scope.
+   For more information, see the
+   `CPython docs <https://docs.python.org/3.6/c-api/refcounting.html>`__.
 
 
 IPython Integration
@@ -122,5 +142,5 @@ as a cell magic, it is quoted as a statement.
    3 + 5 = 8
    reassigning 'a'
 
-   In [6]: a is None
-   Out[6]: True
+   In [5]: a is None
+   Out[5]: True
