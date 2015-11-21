@@ -148,5 +148,5 @@ as a cell magic, it is quoted as a statement.
    Out[5]: True
 
 
-.. |docs| image:: http://quasiquotes.readthedocs.org/en/latest/?badge=latest
+.. |docs| image:: https://readthedocs.org/projects/quasiquotes/badge/?version=latest
    :target: http://quasiquotes.readthedocs.org/en/latest/
