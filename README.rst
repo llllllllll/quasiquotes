@@ -1,6 +1,8 @@
 quasiquotes
 ===========
 
+|docs|
+
 Blocks of non-python code sprinkled in for extra seasoning.
 
 
@@ -144,3 +146,7 @@ as a cell magic, it is quoted as a statement.
 
    In [5]: a is None
    Out[5]: True
+
+
+.. |docs| image:: http://quasiquotes.readthedocs.org/en/latest/?badge=latest
+   :target: http://quasiquotes.readthedocs.org/en/latest/
