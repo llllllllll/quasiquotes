@@ -22,8 +22,7 @@ class QQNotImplementedError(NotImplementedError):
 
 
 class QuasiQuoter:
-    """
-    QuasiQuoter base class.
+    """Custom parsing logic for python
     """
     def __new__(cls, *args, **kwargs):
         if cls is QuasiQuoter:
@@ -43,7 +42,7 @@ class QuasiQuoter:
     def quote_expr(self, expr, frame, col_offset):
         """Quote an expression.
 
-        This is called in the oxford brackets case.
+        This is called in the oxford brackets case: [$qq|...|]
 
         Parameters
         ----------
@@ -57,7 +56,7 @@ class QuasiQuoter:
         Returns
         -------
         v : any
-            The value of the quoted expression
+            The value of the quoted expression.
         """
         self._quote_default(frame, 'expr')
 
@@ -67,7 +66,7 @@ class QuasiQuoter:
     def quote_stmt(self, stmt, frame, col_offset):
         """Quote a statment.
 
-        This is called in the enhanced with block case.
+        This is called in the enhanced with block case: with $qq: ...
 
         Parameters
         ----------
