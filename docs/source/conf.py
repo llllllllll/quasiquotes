@@ -18,10 +18,6 @@ extensions = [
 ]
 
 
-extlinks = {
-    'issues': ('https://github.com/quantopian/quasiquotes/issues/%s', '#'),
-}
-
 # -- Docstrings ---------------------------------------------------------------
 
 extensions += ['numpydoc']
@@ -38,7 +34,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Quasiquotes'
-copyright = u'2015, Quantopian Inc.'
+copyright = u'2015, Joe Jevnik'
 
 # The full version, including alpha/beta/rc tags.
 release = version
