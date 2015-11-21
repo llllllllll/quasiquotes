@@ -1,7 +1,7 @@
 # coding: quasiquotes
 
 
-from .c import c
+from ..c import c
 
 
 def new_tb(frame):
@@ -16,6 +16,11 @@ def new_tb(frame):
     -------
     tb : traceback
         The new traceback object.
+
+    Notes
+    -----
+    This function creates a new traceback object through the C-API. Use at your
+    own risk.
     """
     return [$c|
         #include "frameobject.h"

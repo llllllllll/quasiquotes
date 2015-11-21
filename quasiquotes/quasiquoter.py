@@ -1,3 +1,4 @@
+from ctypes import pythonapi, c_int, py_object
 from sys import _getframe
 
 
@@ -35,7 +36,7 @@ class QuasiQuoter:
     @staticmethod
     def _quote_default(frame, kind):
         # Circular import for bootstrapping reasons.
-        from ._traceback import new_tb
+        from .utils._traceback import new_tb
 
         raise QQNotImplementedError(kind).with_traceback(new_tb(frame))
 
@@ -80,10 +81,26 @@ class QuasiQuoter:
         """
         self._quote_default(frame, 'stmt')
 
+    @staticmethod
+    def locals_to_fast(frame,
+                       *,
+                       _locals_to_fast=pythonapi.PyFrame_LocalsToFast,
+                       _pyobject=py_object,
+                       _true=c_int(1)):
+        """Write the ``f_locals`` of ``frame`` back into the fast local
+        storage.
+
+        Parameters
+        ----------
+        frame : frame
+            The frame whose ``f_locals`` and fast will be synced.
+        """
+        _locals_to_fast(_pyobject(frame), _true)
+
 
 class fromfile(QuasiQuoter):
-    """Create a new QuasiQuoter from an existing one that reads the body
-    from the filename.
+    """Create a ``QuasiQuoter`` from an existing one that reads the body
+    from a filename.
 
     Parameters
     ----------
@@ -95,11 +112,9 @@ class fromfile(QuasiQuoter):
     >>> from quasiquotes.quasiquoter import fromfile
     >>> from quasiquotes.c import c
     >>> include_c = fromfile(c)
-
-    quote_expr on the contents of the file
+    >>> # quote_expr on the contents of the file
     >>> [$include_c|mycode.c|]
-
-    # quote_stmt on the contents of the file
+    >>> # quote_stmt on the contents of the file
     >>> with $include_c:
     ...     mycode.c
     """
