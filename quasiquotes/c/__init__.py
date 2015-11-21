@@ -4,6 +4,7 @@ from hashlib import md5
 import operator as op
 import os
 import re
+from sysconfig import get_config_var
 from textwrap import dedent
 from warnings import warn
 
@@ -80,7 +81,7 @@ class c(QuasiQuoter):
     def __call__(self, **kwargs):
         return type(self)(**kwargs)
 
-    _basename_template = '_qq_{base}_{md5}'
+    _basename_template = '_qq_{base}_{md5}.%s' % get_config_var('SOABI')
     _missing_name_pattern = re.compile(
         r'^.+: error: ‘(.+)’ undeclared'
         r' \(first use in this function\)$',
