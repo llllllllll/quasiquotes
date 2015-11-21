@@ -168,6 +168,7 @@ def quote_stmt_tokenizer(name, start, tok_stream):
             stack -= 1
 
         if not stack:
+            next(tok_stream)  # consume the dedent
             break
 
         if u.start[0] > prev_line:
