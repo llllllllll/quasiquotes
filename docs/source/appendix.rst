@@ -6,6 +6,8 @@ c
 
 .. autodata:: quasiquotes.c.c
 
+   .. automethod:: quasiquotes.c.c.cleanup
+
 .. automodule:: quasiquotes.c
    :members:
 

@@ -1,10 +1,10 @@
 Inline c
 --------
 
-The most fully featured quasiquoter and the the reason that this project
-exists is the :data:`~quasiquotes.c.c` quasiquoter. The c quasiquoter is designed to be a way to
-seamlessly use the CPython API while preserving code locality and avoiding
-boilerplate.
+The most fully featured quasiquoter and the the reason that this project exists
+is the :data:`~quasiquotes.c.c` quasiquoter. The c quasiquoter is designed to be
+a way to seamlessly use the CPython API while preserving code locality and
+avoiding boilerplate.
 
 When optimizing python, we often find that very few functions are hotspots that
 require us to rewrite in c. Good practice says to start in python and then
@@ -174,13 +174,13 @@ enabled.
 
 The quasiquoter can also be configured to cache the generated c source code or
 to not cache the shared objects with the ``keep_c`` and ``keep_so`` keyword
-arguments to the ``c`` quasiquoter.
+arguments to the :data:`~quasiquotes.c.c` quasiquoter.
 
 Every compiled chunk will be cached in memory after the quasiquote has been
 executed once.
 
 Every so often you will want to cleanup stale compiled shared objects. This can
-be done with the :meth:`~quasiquotes.c.c.cleanup` method, or by executing:
+be done with the :meth:`quasiquotes.c.c.cleanup` method, or by executing:
 ``python -m quasiquotes.c`` Both of these accept two arguments: ``path`` and
 ``recurse`` defaulting to ``.`` and ``True`` respectivly. This marks where the
 search for cached c and shared objects should begin and if the search should
