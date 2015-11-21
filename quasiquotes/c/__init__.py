@@ -1,4 +1,3 @@
-from ctypes import pythonapi, c_int, py_object
 from distutils.sysconfig import get_python_inc
 from hashlib import md5
 import operator as op
@@ -34,14 +33,14 @@ class CompilationWarning(UserWarning):
 
 @instance
 class c(QuasiQuoter):
-    """Quasiquoter for inlining C.
+    """quasiquoter for inlining c.
 
     Parameters
     ----------
     keep_c : bool, optional
-        Keep the generated *.c files. Defaults to False.
+        Keep the generated .c files. Defaults to False.
     keep_so : bool, optional
-        Keep the compiled *.so files. Defaults to True.
+        Keep the compiled .so files. Defaults to True.
     extra_compile_args : iterable[str or Flag]
         Extra command line arguments to pass to gcc.
 
@@ -81,7 +80,7 @@ class c(QuasiQuoter):
     def __call__(self, **kwargs):
         return type(self)(**kwargs)
 
-    _basename_template = '_qq_{base}_{md5}.%s' % get_config_var('SOABI')
+    _basename_template = '_qq_{type}_{base}_{md5}.%s' % get_config_var('SOABI')
     _missing_name_pattern = re.compile(
         r'^.+: error: ‘(.+)’ undeclared'
         r' \(first use in this function\)$',
@@ -180,8 +179,7 @@ class c(QuasiQuoter):
             frame.f_globals,
             locals_,
         )
-        locals_.update(locals_)
-        pythonapi.PyFrame_LocalsToFast(py_object(frame), c_int(1))
+        self.locals_to_fast(frame)
 
     def quote_expr(self, code, frame, col_offset):
         """Execute an inline C expression respecting scoping rules.
@@ -223,7 +221,7 @@ class c(QuasiQuoter):
         """
         return frame.f_code, frame.f_lineno, col_offset
 
-    def _resolve(self, code, frame, col_offset, cache, mkfunc):
+    def _resolve(self, code, frame, col_offset, cache, kind):
         """Find the function for the given entry.
 
         If the function is not already cached, then create it.
@@ -238,8 +236,8 @@ class c(QuasiQuoter):
             The column offset of the quasiquoter.
         cache : dict
             The cache to use for lookups.
-        mkfunc : callable
-            The callable to use to create the new function if missing.
+        kind : {'expr', 'stmt'}
+            The type of quasiquote being invoked.
 
         Returns
         -------
@@ -254,44 +252,51 @@ class c(QuasiQuoter):
 
         f_code = frame.f_code
         try:
-            f = cache[entry] = create_callable(self._soname(code, f_code))
+            f = cache[entry] = create_callable(
+                self._soname(code, f_code, kind),
+            )
             return f
         except OSError:
             pass
 
         try:
-            f = cache[entry] = self._compile(code, f_code)
+            f = cache[entry] = self._compile(code, f_code, kind)
             return f
         except FileNotFoundError:
             pass
 
-        f = cache[entry] = mkfunc(code, frame, col_offset)
+        f = cache[entry] = self._make_func(code, frame, col_offset, kind)
         return f
 
-    def _dir_and_basename(self, code, f_code):
+    def _dir_and_basename(self, code, f_code, kind):
         filename = f_code.co_filename
         return (
             os.path.abspath(os.path.dirname(filename)),
             self._basename_template.format(
+                type=kind,
                 base=os.path.basename(filename).split('.', 1)[0],
                 md5=md5(code.encode('utf-8')).hexdigest(),
             ),
         )
 
-    def _soname(self, code, f_code):
-        return os.path.join(*self._dir_and_basename(code, f_code)) + '.so'
+    def _soname(self, code, f_code, kind):
+        return os.path.join(
+            *self._dir_and_basename(code, f_code, kind)
+        ) + '.so'
 
-    def _cname(self, code, f_code):
-        return os.path.join(*self._dir_and_basename(code, f_code)) + '.c'
+    def _cname(self, code, f_code, kind):
+        return os.path.join(
+            *self._dir_and_basename(code, f_code, kind)
+        ) + '.c'
 
     def _resolve_stmt(self, code, frame, col_offset):
         return self._resolve(
-            code, frame, col_offset, self._stmt_cache, self._make_stmt,
+            code, frame, col_offset, self._stmt_cache, 'stmt',
         )
 
     def _resolve_expr(self, code, frame, col_offset):
         return self._resolve(
-            code, frame, col_offset, self._expr_cache, self._make_expr,
+            code, frame, col_offset, self._expr_cache, 'expr',
         )
 
     def _make_func(self,
@@ -341,7 +346,7 @@ class c(QuasiQuoter):
                 "incorrect kind ('{}') must be 'stmt' or 'expr'".format(kind),
             )
 
-        cname = self._cname(code, frame.f_code)
+        cname = self._cname(code, frame.f_code, kind)
         with open(cname, 'w+') as f:
             f.write(template.format(
                 fmt='"{}"'.format('O' * len(names)),
@@ -364,7 +369,7 @@ class c(QuasiQuoter):
             f.flush()
 
         try:
-            return self._compile(code, frame.f_code)
+            return self._compile(code, frame.f_code, kind)
         except CompilationError as e:
             if not _first:
                 try:
@@ -384,9 +389,9 @@ class c(QuasiQuoter):
                 _first=False,
             )
 
-    def _compile(self, code, f_code):
-        cname = self._cname(code, f_code)
-        soname = self._soname(code, f_code)
+    def _compile(self, code, f_code, kind):
+        cname = self._cname(code, f_code, kind)
+        soname = self._soname(code, f_code, kind)
         os.stat(cname)  # raises FileNotFoundError if doesn't exist
         _, err, status = gcc(
             Flag.O(3),
@@ -410,44 +415,6 @@ class c(QuasiQuoter):
         if not self._keep_so:
             os.remove(soname)
         return f
-
-    def _make_stmt(self, code, frame, col_offset):
-        """Create the C statement function based off of the user code.
-
-        Parameters
-        ----------
-        code : str
-            The user code to use to create the function.
-        frame : frame
-            The first stackframe where this code is being compiled.
-        col_offset : int
-            The column offset of the code.
-
-        Returns
-        -------
-        f : callable
-            The C function from user code.
-        """
-        return self._make_func(code, frame, col_offset, 'stmt')
-
-    def _make_expr(self, code, frame, col_offset):
-        """Create the C expression function based off of the user code.
-
-        Parameters
-        ----------
-        code : str
-            The user code to use to create the function.
-        frame : frame
-            The first stackframe where this code is being compiled.
-        col_offset : int
-            The column offset of the code.
-
-        Returns
-        -------
-        f : callable
-            The C function from user code.
-        """
-        return self._make_func(code, frame, col_offset, 'expr')
 
     def cleanup(self, path='.', recurse=True):
         paths = (
