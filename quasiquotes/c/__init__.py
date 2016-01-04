@@ -466,13 +466,13 @@ else:
         frame = sys._getframe()
         if cell is None:
             lineno = frame.f_lineno + 1
-            ret = qq._resolve_expr(line, frame, 0)(ns)
+            ret = qq._resolve_expr(line, frame, 0)(ns, ns)
             cache = qq._expr_cache
         else:
             ret = None
             cache = qq._stmt_cache
             lineno = frame.f_lineno + 1
-            qq._resolve_stmt(cell, frame, 0)(ns)
+            qq._resolve_stmt(cell, frame, 0)(ns, ns)
 
         del cache[frame.f_code, lineno, 0]
         return ret
