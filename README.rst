@@ -118,6 +118,70 @@ interface into the C API.
    `CPython docs <https://docs.python.org/3.6/c-api/refcounting.html>`__.
 
 
+The ``r`` quasiquoter
+---------------------
+
+The optional ``r`` quasiquoter allows us to inline R code into our python.
+For example:
+
+.. code-block:: r
+
+   >>> from quasiquotes.r import r
+   >>> def f(a):
+   ...     with $r:
+   ...         print(a)
+   ...         a <- 1
+   ...     print(a)
+   ...
+   >>> f(0)
+   [1]
+    0
+
+
+   array([ 1.])
+   >>> f(1)
+   [1]
+    0
+
+
+   array([ 2.])
+
+
+Here we can see that the quasiquoter can read from and write to the local
+scope.
+
+.. note::
+
+   The return type is coerced to a numpy array of length one because there are
+   no scalar types in R.
+
+
+We can also quote R expressions with the quote expression syntax.
+
+.. code-block:: python
+
+   >>> def r_isna(df):
+   ...     return [$r|is.na(df)|]
+   ...
+   >>> df = pd.DataFrame({'a': [1, 2, None], 'b': [4, None, 6]})
+   >>> df
+       a   b
+   0   1   4
+   1   2 NaN
+   2 NaN   6
+   >>> r_isna(df)
+   array([[0, 0],
+          [0, 1],
+          [1, 0]], dtype=int32)
+
+
+.. note::
+
+   The ``r`` quasiquoter is installed with ``pip install quasiquotes[r]``
+   This will install rpy2 which is used to interface with R.
+
+
+
 IPython Integration
 -------------------
 

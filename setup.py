@@ -43,7 +43,7 @@ def subcmd(cmd):
 setup(
     cmdclass={'install': subcmd(install), 'develop': subcmd(develop)},
     name='quasiquotes',
-    version='0.2.0',
+    version='0.2.1',
     description='Quasiquotation in python',
     author='Joe Jevnik',
     author_email='joejev@gmail.com',
@@ -62,4 +62,7 @@ setup(
         Extension('quasiquotes.c._loader', ['quasiquotes/c/_loader.c']),
     ],
     url='https://github.com/llllllllll/quasiquotes',
+    extras_require={
+        'r': ['rpy2'],
+    },
 )
