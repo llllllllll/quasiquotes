@@ -79,7 +79,7 @@ class PeekableIterator:
 
     def __next__(self):
         try:
-            return self._peeked.pop()
+            return self._peeked.popleft()
         except IndexError:
             return next(self._stream)
 
@@ -115,6 +115,13 @@ class PeekableIterator:
         for item in peeked:
             put(item)
         return peeked
+
+    def consume_peeked(self, n=None):
+        if n is None:
+            self._peeked.clear()
+        else:
+            for _ in range(n):
+                self._peeked.popleft()
 
     def lookahead_iter(self):
         """Return an iterator that yields the next element and then consumes
@@ -368,6 +375,7 @@ def tokenize(readline):
             try:
                 sp, dol, name, col, nl, indent = tok_stream.peek(6)
             except ValueError:
+                yield t
                 continue
 
             if (sp == spaceerror_tok and
@@ -375,8 +383,7 @@ def tokenize(readline):
                     col == col_tok and
                     nl == nl_tok and
                     indent.type == INDENT):
-                # pull the items out of the stream.
-                tuple(islice(tok_stream, None, 6))
+                tok_stream.consume_peeked(6)
                 yield from quote_stmt_tokenizer(name, t, tok_stream)
                 continue
 
@@ -384,10 +391,11 @@ def tokenize(readline):
             try:
                 dol, name, pipe = tok_stream.peek(3)
             except ValueError:
+                yield t
                 continue
 
             if dol == dollar_tok and pipe == pipe_tok:
-                tuple(islice(tok_stream, None, 3))
+                tok_stream.consume_peeked(3)
                 yield from quote_expr_tokenizer(name, t, tok_stream)
                 continue
 
