@@ -40,29 +40,37 @@ def subcmd(cmd):
     return sub
 
 
-setup(
-    cmdclass={'install': subcmd(install), 'develop': subcmd(develop)},
-    name='quasiquotes',
-    version='0.2.1',
-    description='Quasiquotation in python',
-    author='Joe Jevnik',
-    author_email='joejev@gmail.com',
-    packages=find_packages(),
-    long_description=long_description,
-    license='GPL-2',
-    classifiers=[
-        'Development Status :: 3 - Alpha',
-        'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
-        'Natural Language :: English',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3 :: Only',
-        'Topic :: Software Development :: Pre-processors',
-    ],
-    ext_modules=[
-        Extension('quasiquotes.c._loader', ['quasiquotes/c/_loader.c']),
-    ],
-    url='https://github.com/llllllllll/quasiquotes',
-    extras_require={
-        'r': ['rpy2'],
-    },
-)
+def extras_require():
+    r = ['rpy2']
+
+    return {
+        'r': r,
+        'dev': r + ['pytest'],
+    }
+
+
+if __name__ == '__main__':
+    setup(
+        cmdclass={'install': subcmd(install), 'develop': subcmd(develop)},
+        name='quasiquotes',
+        version='0.2.1',
+        description='Quasiquotation in python',
+        author='Joe Jevnik',
+        author_email='joejev@gmail.com',
+        packages=find_packages(),
+        long_description=long_description,
+        license='GPL-2',
+        classifiers=[
+            'Development Status :: 3 - Alpha',
+            'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
+            'Natural Language :: English',
+            'Programming Language :: Python :: 3.4',
+            'Programming Language :: Python :: 3 :: Only',
+            'Topic :: Software Development :: Pre-processors',
+        ],
+        ext_modules=[
+            Extension('quasiquotes.c._loader', ['quasiquotes/c/_loader.c']),
+        ],
+        url='https://github.com/llllllllll/quasiquotes',
+        extras_require=extras_require(),
+    )

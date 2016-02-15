@@ -1,0 +1,15 @@
+language: python
+sudo: false
+python:
+  - 3.4
+  - 3.5
+
+install:
+  - pip install -e .[dev]
+
+script:
+  - py.test quasiquotes
+  - flake8 quasiquotes
+
+notifications:
+  email: false
