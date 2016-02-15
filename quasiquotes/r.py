@@ -5,8 +5,8 @@ from itertools import chain
 import rpy2.robjects as ro
 from rpy2.ipython.rmagic import converter, pyconverter
 
-from ..quasiquoter import QuasiQuoter
-from ..utils.instance import instance
+from .quasiquoter import QuasiQuoter
+from .utils.instance import instance
 
 
 @instance
