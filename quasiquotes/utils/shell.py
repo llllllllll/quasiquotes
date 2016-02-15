@@ -14,7 +14,7 @@ class Flag(metaclass=FlagMeta):
     def __str__(self):
         if self._arg is not None:
             fmtstr = (
-                '-{name}{arg}' if len(self._name) == 1 else '-{name}={arg}'
+                '-{name}{arg!r}' if len(self._name) == 1 else '-{name}={arg!r}'
             )
             return fmtstr.format(name=self._name, arg=self._arg)
         else:
