@@ -2,9 +2,10 @@ from collections import deque
 from io import BytesIO
 from itertools import islice, chain, repeat
 from token import (
+    DEDENT,
+    ENDMARKER,
     ERRORTOKEN,
     INDENT,
-    DEDENT,
     NAME,
     NEWLINE,
     NUMBER,
@@ -182,7 +183,7 @@ def quote_stmt_tokenizer(name, start, tok_stream):
             prev_line = u.start[0]
             append(u.line)
 
-            end = start.end[0], start.end[1] + len(name.string)
+    end = start.start[0], start.start[1] + len(name.string)
     yield name._replace(start=start.start, end=end, line='<line>')
     dot_end = end[0], end[1] + 1
     yield TokenInfo(
@@ -243,6 +244,7 @@ def quote_stmt_tokenizer(name, start, tok_stream):
         end=close_end,
         line='<line>',
     )
+
     nl_end = close_end[0], close_end[1] + 1
     yield TokenInfo(
         type=NEWLINE,
@@ -251,13 +253,18 @@ def quote_stmt_tokenizer(name, start, tok_stream):
         end=nl_end,
         line='<line>',
     )
-    yield TokenInfo(
-        type=NL,
-        string='\n',
-        start=(nl_end[0] + 1, 0),
-        end=(nl_end[0] + 1, 1),
-        line='<line>',
-    )
+
+    if tok_stream.peek(1)[0].type == ENDMARKER:
+        return
+
+    for n in range(nl_end[0] + 1, u.start[0]):
+        yield TokenInfo(
+            type=NL,
+            string='\n',
+            start=(n, 0),
+            end=(n, 1),
+            line='\n',
+        )
 
 
 def quote_expr_tokenizer(name, start, tok_stream):

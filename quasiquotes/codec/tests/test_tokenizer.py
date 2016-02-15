@@ -2,6 +2,7 @@ import pytest
 
 from quasiquotes.codec.tokenizer import (
     PeekableIterator,
+    transform_string,
 )
 
 
@@ -41,3 +42,18 @@ def test_consume_peeked_n(piter):
     assert piter.peek(5) == (0, 1, 2, 3, 4)
     piter.consume_peeked(3)
     assert list(piter) == list(range(3, 10))
+
+
+def test_decode_stmt():
+    assert (
+        transform_string('with $qq:\n    body') ==
+        "qq._quote_stmt(0,'    body')\n"
+    )
+    assert (
+        transform_string('with $qq:\n    body\nout') ==
+        "qq._quote_stmt(0,'    body\\n')\n\nout"
+    )
+
+
+def test_decode_expr():
+    assert transform_string('[$qq|body|]') == "qq._quote_expr(0,'     body')"
