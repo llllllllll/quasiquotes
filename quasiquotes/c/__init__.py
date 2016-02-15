@@ -1,3 +1,4 @@
+import builtins
 from distutils.sysconfig import get_python_inc
 from hashlib import md5
 import operator as op
@@ -14,6 +15,7 @@ from ..utils.instance import instance
 from ..utils.shell import Executable, Flag
 
 
+builtins_ns = vars(builtins)
 gcc = Executable('gcc')
 
 
@@ -88,17 +90,21 @@ class c(QuasiQuoter):
     )
     _error_pattern = re.compile('^.+:\d+: error.*', re.MULTILINE)
 
-    _read_scope_template = dedent(
+    _read_scope_template = '\n'.join('    ' + l for l in dedent(
         """\
-            if (!({name} = PyDict_GetItemString(__qq_locals, "{name}"))) {{
-                if (!({name} = PyDict_GetItemString(__qq_globals,
-                                                    "{name}"))) {{
-                    PyErr_SetString(PyExc_NameError,
-                                    "name '{name}' is not defined");
-                }}
-            }}
+        if (!(__qq_name = PyUnicode_FromString("{name}"))) {{
+            return NULL;
+        }}
+        ({name} = PyDict_GetItem(__qq_locals, __qq_name)) ||
+        ({name} = PyDict_GetItem(__qq_globals, __qq_name)) ||
+        ({name} = PyDict_GetItem(__qq_builtins, __qq_name));
+        Py_DECREF(__qq_name);
+        if (!{name}) {{
+            PyErr_SetString(PyExc_NameError, "name '{name}' is not defined");
+            return NULL;
+        }}
         """,
-    )
+    ).splitlines())
 
     _shared = dedent(
         """\
@@ -107,17 +113,21 @@ class c(QuasiQuoter):
         static PyObject *
         __qq_f(PyObject *__qq_self, PyObject *__qq_args)
         {{
-            PyObject *__qq_globals;
+            PyObject *__qq_name;
             PyObject *__qq_locals;
+            PyObject *__qq_globals;
+            PyObject *__qq_builtins;
         {localdecls}
 
-            if (PyTuple_GET_SIZE(__qq_args) != 2) {{
+            if (PyTuple_GET_SIZE(__qq_args) != 3) {{
                 PyErr_SetString(PyExc_TypeError,
-                                "quoted func needs 2 args (globals, locals)");
+                                "quoted func needs 3 args"
+                                " (builtins, globals, locals)");
                 return NULL;
             }}
-            __qq_globals = PyTuple_GET_ITEM(__qq_args, 0);
-            __qq_locals = PyTuple_GET_ITEM(__qq_args, 1);
+            __qq_builtins = PyTuple_GET_ITEM(__qq_args, 0);
+            __qq_globals = PyTuple_GET_ITEM(__qq_args, 1);
+            __qq_locals = PyTuple_GET_ITEM(__qq_args, 2);
 
         {read_scope}
         """,
@@ -174,10 +184,10 @@ class c(QuasiQuoter):
         col_offset : int
             The column offset of the code.
         """
-        locals_ = frame.f_locals
         self._resolve_stmt(code, frame, col_offset)(
+            builtins_ns,
             frame.f_globals,
-            locals_,
+            frame.f_locals,
         )
         self.locals_to_fast(frame)
 
@@ -199,6 +209,7 @@ class c(QuasiQuoter):
             The result of the C expression.
         """
         return self._resolve_expr(code, frame, col_offset)(
+            builtins_ns,
             frame.f_globals,
             frame.f_locals,
         )
@@ -400,15 +411,14 @@ class c(QuasiQuoter):
             Flag.std('gnu11'),
             Flag.shared,
             Flag.o(soname),
-            *(cname,) + self._extra_compile_args
+            *(repr(cname),) + self._extra_compile_args
         )
         if not self._keep_c:
             os.remove(cname)
-        if err:
-            if self._error_pattern.findall(err):
-                raise CompilationError(err)
-            else:
-                warn(CompilationWarning(err))
+        if status:
+            raise CompilationError(err)
+        elif err:
+            warn(CompilationWarning(err))
 
         f = create_callable(soname)
 
@@ -449,20 +459,12 @@ class c(QuasiQuoter):
         return removed
 
 
-try:
-    __IPYTHON__
-except NameError:
-    pass
-else:
+def load_ipython_extension(ipython):
     import sys
+    qq = c(keep_c=False, keep_so=False)
 
-    from IPython.core.magic import register_line_cell_magic
-
-    _c = c  # hold a reference to the quasiquoter
-
-    @register_line_cell_magic
-    def c(line, cell=None, *, sys=sys, qq=c(keep_c=False, keep_so=False)):
-        ns = get_ipython().user_ns  # noqa
+    def c(line, cell=None):
+        ns = ipython.user_ns  # noqa
         frame = sys._getframe()
         if cell is None:
             lineno = frame.f_lineno + 1
@@ -477,7 +479,4 @@ else:
         del cache[frame.f_code, lineno, 0]
         return ret
 
-    del register_line_cell_magic
-    del sys
-
-    c = _c  # reassign the quasiquoter to the name 'c'
+    ipython.register_magic_function(c, 'line_cell', 'c')
